@@ -1,4 +1,4 @@
-console.log('Content script loaded');
+console.log('Content script initializing...');
 
 // Error classes
 class VideoUnavailableError extends Error {
@@ -187,58 +187,94 @@ function selectTranscriptTrack(captionsData, videoId, lang) {
   return track;
 }
 
-function fetchTranscriptData(transcriptUrl) {
-  return fetch(transcriptUrl, {
+async function fetchTranscriptData(transcriptUrl) {
+  const response = await fetch(transcriptUrl, {
     headers: {
       'User-Agent': USER_AGENT,
     },
-  })
-  .then(response => {
-    if (!response.ok) {
-      throw new Error('Failed to fetch transcript data.');
-    }
-    return response.text();
-  })
-  .then(text => decodeHTMLEntities(text));
-}
+  });
 
-// Helper function to decode HTML entities using DOMParser
-function decodeHTMLEntities(text) {
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(text, "text/html");
-  return doc.body.textContent || "";
+  if (!response.ok) {
+    throw new Error('Failed to fetch transcript data.');
+  }
+
+  const text = await response.text();
+  // Log the first part of the response for debugging
+  console.log('Transcript response preview:', text.substring(0, 200));
+  return text;
 }
 
 function parseTranscriptData(transcriptBody, lang) {
-  const parser = new DOMParser();
-  const xmlDoc = parser.parseFromString(`<transcript>${transcriptBody}</transcript>`, 'text/xml');
-  const textNodes = xmlDoc.getElementsByTagName('text');
-
-  if (textNodes.length === 0) {
-    throw new Error('Failed to parse transcript data: No text nodes found');
+  console.log('Raw transcript body:', transcriptBody);
+  
+  // Try parsing as JSON first (newer format)
+  try {
+    const data = JSON.parse(transcriptBody);
+    if (data?.events) {
+      return data.events
+        .filter(event => event?.segs?.[0]?.utf8)
+        .map(event => ({
+          text: decodeHTMLEntities(event.segs[0].utf8),
+          duration: event.dDurationMs ? event.dDurationMs / 1000 : 0,
+          start: event.tStartMs ? event.tStartMs / 1000 : 0,
+          lang
+        }));
+    }
+  } catch (e) {
+    console.log('JSON parsing attempt failed, trying XML format');
   }
-
-  const transcriptArray = Array.from(textNodes).map(node => {
-    const start = parseFloat(node.getAttribute('start') || '0');
-    const duration = parseFloat(node.getAttribute('dur') || '0');
-    const text = node.textContent || '';
-    return { start, duration, text, lang };
+  
+  // Try XML format (older format)
+  const matches = Array.from(transcriptBody.matchAll(RE_XML_TRANSCRIPT));
+  
+  if (matches.length === 0) {
+    // Try alternative XML format with different quotes
+    const altRegex = /<text start='([^']*)' dur='([^']*)'>(.*?)<\/text>/g;
+    const altMatches = Array.from(transcriptBody.matchAll(altRegex));
+    
+    if (altMatches.length > 0) {
+      return altMatches.map(match => {
+        const [, start = '0', duration = '0', text = ''] = match;
+        return {
+          text: decodeHTMLEntities(text),
+          duration: parseFloat(duration),
+          start: parseFloat(start),
+          lang
+        };
+      });
+    }
+    
+    console.error('Transcript parsing failed. Content:', transcriptBody.substring(0, 500));
+    throw new Error('Failed to parse transcript data: No matches found');
+  }
+  
+  return matches.map(match => {
+    const [, start = '0', duration = '0', text = ''] = match;
+    return {
+      text: decodeHTMLEntities(text),
+      duration: parseFloat(duration),
+      start: parseFloat(start),
+      lang
+    };
   });
-
-  return transcriptArray;
 }
 
 async function fetchVideoDetails(videoId, config = { lang: null }) {
   try {
+    console.log('xxx videoId:', videoId);
     const id = retrieveVideoId(videoId);
     const body = await fetchVideoPage(id, config.lang);
 
     const videoDetails = parseVideoDetails(body);
 
     const captionsData = parseCaptionsData(body, id);
+    console.log('xxx captionsData:', captionsData);
+    
     const transcriptTrack = selectTranscriptTrack(captionsData, id, config.lang);
-    const transcriptBody = await fetchTranscriptData(transcriptTrack.baseUrl);
+    console.log('xxx transcriptTrack:', transcriptTrack);
 
+    // Fetch the transcript data from the track's baseUrl
+    const transcriptBody = await fetchTranscriptData(transcriptTrack.baseUrl);
     const transcriptResponses = parseTranscriptData(transcriptBody, transcriptTrack.languageCode);
     videoDetails.transcript = transcriptResponses;
     videoDetails.videoId = videoId;
@@ -265,15 +301,17 @@ async function fetchVideoDetails(videoId, config = { lang: null }) {
 
 // Listen for messages from the background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  console.log('Message received in content script:', request);
+  console.log('Content script received message:', request);
   
   // Handle ping message to check if content script is loaded
   if (request.type === 'PING') {
+    console.log('Responding to PING message');
     sendResponse({ success: true });
-    return;
+    return true;
   }
   
   if (request.type === 'FETCH_TRANSCRIPT') {
+    console.log('Starting transcript fetch for URL:', request.url);
     // Execute the async function and handle the response
     fetchVideoDetails(request.url)
       .then(videoDetails => {
@@ -293,6 +331,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
+console.log('Content script initialization complete');
+
 // Export functions for testing if in a Node environment
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -300,4 +340,20 @@ if (typeof module !== 'undefined' && module.exports) {
     parseCaptionsData
     // add other functions as needed
   };
+}
+
+// Helper function to decode HTML entities
+function decodeHTMLEntities(text) {
+  const entities = {
+    '&#39;': "'",
+    '&quot;': '"',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&amp;': '&',
+    '&nbsp;': ' '
+  };
+  
+  return text.replace(/&[#\w]+;/g, match => 
+    entities[match] || match
+  );
 } 

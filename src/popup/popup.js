@@ -62,6 +62,7 @@ async function handleFetchTranscript() {
     if (response?.success) {
       const transcriptData = response.data.transcript;
       const formattedTranscript = formatTranscript(transcriptData);
+      const stringifiedTranscript = JSON.stringify(transcriptData, null, 2);
       
       console.log('Transcript data:', formattedTranscript);
       
@@ -90,55 +91,51 @@ button.addEventListener('click', handleFetchTranscript);
 
 function formatTranscript(transcriptData) {
   if (!transcriptData || !Array.isArray(transcriptData) || transcriptData.length === 0) {
-    return ""; // Return empty string for invalid input
+    return ""; 
   }
 
   let formattedTranscript = "";
 
-  for (const segment of transcriptData) {
-    let text = segment.text;
+  transcriptData.forEach((segment, index) => {
+    if (!segment?.text) return;
+    
+    // Create a temporary element to decode HTML entities properly
+    const decoder = document.createElement('div');
+    decoder.innerHTML = segment.text;
+    let text = decoder.textContent.trim();
 
-    // 1. Basic Text Cleaning:
-    text = text.trim(); // Remove leading/trailing whitespace
-
-    // 2. HTML Entity Decoding:
-    text = text.replace(/&amp;#39;/g, "'"); // Replace &#39; with '
-    text = text.replace(/&quot;/g, '"');   //Replace the double quote HTML entity
-    text = text.replace(/&lt;/g, '<');     //Replace less than HTML entity
-    text = text.replace(/&gt;/g, '>');     //Replace greater than HTML entity
-    text = text.replace(/&amp;/g, '&');    // Replace &amp; with &  (MUST be last)
-
-    // 3. Sentence Case and Punctuation:
-      if (formattedTranscript.length > 0) {
-          // Add a space if the previous segment didn't end with punctuation.
-          const lastChar = formattedTranscript.slice(-1);
-          if (!['.', '?', '!', '\n'].includes(lastChar)) {
-                //check if a pause of greater than .5 seconds occurs, and if so, add some new lines to show the speaker has finished that thought.
-              if(segment.offset - (transcriptData[transcriptData.indexOf(segment)-1].offset + transcriptData[transcriptData.indexOf(segment)-1].duration) > 0.5){
-                  formattedTranscript += "\n\n";
-              }
-              else{
-                  formattedTranscript += " ";
-              }
-          }
+    // Handle spacing and new lines
+    if (formattedTranscript.length > 0) {
+      const lastChar = formattedTranscript.slice(-1);
+      const isPunctuated = ['.', '?', '!', '\n'].includes(lastChar);
+      
+      if (index > 0) {
+        const previousSegment = transcriptData[index - 1];
+        const currentStart = segment.offset || 0;
+        const previousEnd = (previousSegment.offset || 0) + (previousSegment.duration || 0);
+        const pause = currentStart - previousEnd;
+        
+        if (pause > 0.5) {
+          formattedTranscript += '\n\n';
+        } else if (!isPunctuated) {
+          formattedTranscript += ' ';
+        }
       }
-
-    // Capitalize the first letter of the *segment* (if it's the start of the whole transcript OR after a newline).
-        if (formattedTranscript.length === 0 || formattedTranscript.slice(-2) === '\n\n' ) {
-           text = text.charAt(0).toUpperCase() + text.slice(1);
-       }
-
-
-    formattedTranscript += text;
-  }
-
-
-    // Add final punctuation if missing.  Makes the transcript end nicely.
-    const lastChar = formattedTranscript.slice(-1);
-    if (!['.', '?', '!', '\n'].includes(lastChar)) {
-        formattedTranscript += '.';
     }
 
+    // Capitalize after newlines or at start
+    if (formattedTranscript.length === 0 || formattedTranscript.slice(-2) === '\n\n') {
+      text = text.charAt(0).toUpperCase() + text.slice(1);
+    }
+
+    formattedTranscript += text;
+  });
+
+  // Add final punctuation if needed
+  const lastChar = formattedTranscript.slice(-1);
+  if (!['.', '?', '!', '\n'].includes(lastChar)) {
+    formattedTranscript += '.';
+  }
 
   return formattedTranscript;
-};
+}
