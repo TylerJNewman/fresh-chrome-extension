@@ -1,11 +1,14 @@
 {
-  "name": "Fresh Chrome Extension boilerplate",
-  "description": "Fully functional, useful bare minimum Google Chrome extension boilerplate [Manifest V3].",
+  "name": "YouTube Transcript Fetcher",
+  "description": "Fetch YouTube video transcripts and copy them to your clipboard.",
   "homepage_url": "https://github.com/llagerlof/fresh-chrome-extension",
-  "version": "3.1.0",
+  "version": "1.0.0",
   "manifest_version": 3,
+  "background": {
+    "service_worker": "src/background.js"
+  },
   "action": {
-    "default_title": "Fresh Chrome Extension boilerplate 3.1.0",
+    "default_title": "YouTube Transcript Fetcher",
     "default_popup": "src/popup/popup.html",
     "default_icon": {
       "16": "assets/icons/icon16.png",
@@ -22,28 +25,24 @@
   },
   "content_scripts": [
     {
-      "run_at" : "document_start",
-      "js": ["src/content/before.js"],
       "matches": [
-        "https://*/*",
-        "http://*/*"
-      ]
-    },
-    {
-      "run_at" : "document_idle",
-      "js": ["src/content/after.js"],
-      "matches": [
-        "https://*/*",
-        "http://*/*"
-      ]
+        "https://*.youtube.com/*",
+        "https://youtube.com/*"
+      ],
+      "js": [
+        "src/content/content-script.js"
+      ],
+      "run_at": "document_idle"
     }
   ],
   "permissions": [
-    "tabs",
-    "scripting"
+    "activeTab",
+    "clipboardWrite",
+    "scripting",
+    "tabs"
   ],
   "host_permissions": [
-    "https://*/*",
-    "http://*/*"
+    "https://*.youtube.com/*",
+    "https://youtube.com/*"
   ]
 }

@@ -1,14 +1,91 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Transcript</title>
   <style>
-    body { width: 200px; padding: 10px; }
-    button { width: 100%; padding: 10px; }
+    body {
+      width: 400px;
+      min-height: 200px;
+      padding: 1rem;
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+    
+    h1 {
+      font-size: 1.25rem;
+      font-weight: bold;
+      margin-bottom: 1rem;
+      color: #111827;
+    }
+    
+    button {
+      width: 100%;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      background-color: #2563eb;
+      color: white;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+      background-color: #1d4ed8;
+    }
+    
+    button:disabled {
+      background-color: #e5e7eb;
+      color: #6b7280;
+      cursor: not-allowed;
+    }
+    
+    #error {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background-color: #fee2e2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+    }
+    
+    #success {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background-color: #dcfce7;
+      border: 1px solid #bbf7d0;
+      color: #16a34a;
+    }
+    
+    #transcript {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      background-color: #f9fafb;
+      border: 1px solid #e5e7eb;
+      color: #374151;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      font-size: 0.875rem;
+    }
   </style>
 </head>
 <body>
-  <button id="btnShowOrangeDiv">Click this button to add an orange div to the page</button>
-  <p>(I am in "popup.html")</p>  
+  <h1>YouTube Transcript</h1>
+  
+  <button id="fetchButton">Get Transcript</button>
+  
+  <div id="error"></div>
+  <div id="success">Transcript copied to clipboard!</div>
+  <div id="transcript"></div>
+  
   <script src="popup.js"></script>
 </body>
 </html>
