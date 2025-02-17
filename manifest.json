@@ -7,6 +7,15 @@
   "background": {
     "service_worker": "src/background.js"
   },
+  "commands": {
+    "fetch-transcript": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Fetch and copy transcript"
+    }
+  },
   "action": {
     "default_title": "YouTube Transcript Fetcher",
     "default_popup": "src/popup/popup.html",
@@ -39,7 +48,8 @@
     "activeTab",
     "clipboardWrite",
     "scripting",
-    "tabs"
+    "tabs",
+    "notifications"
   ],
   "host_permissions": [
     "https://*.youtube.com/*",
